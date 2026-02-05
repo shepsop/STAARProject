@@ -142,17 +142,13 @@ function Dashboard({ userProgress }) {
             </h3>
             <div className="badges-grid">
               {recentBadges.map((badge, index) => (
-                <motion.div
+                <div
                   key={index}
                   className="badge-card"
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: index * 0.1, type: 'spring' }}
-                  whileHover={{ scale: 1.1, rotate: 5 }}
                 >
                   <div className="badge-icon">{badge.icon}</div>
                   <div className="badge-name">{badge.name}</div>
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>
@@ -164,41 +160,23 @@ function Dashboard({ userProgress }) {
       </h2>
 
       <div className="subject-grid">
-        <motion.div
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <Link to="/select/math" className="subject-card">
-            <motion.div
-              className="subject-icon"
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-            >
-              🔢
-            </motion.div>
-            <h3>Math Adventure</h3>
-            <p>Solve fun math problems and earn stars!</p>
-            <button className="play-button">Start Playing</button>
-          </Link>
-        </motion.div>
+        <Link to="/select/math" className="subject-card">
+          <div className="subject-icon">
+            🔢
+          </div>
+          <h3>Math Adventure</h3>
+          <p>Solve fun math problems and earn stars!</p>
+          <button className="play-button">Start Playing</button>
+        </Link>
 
-        <motion.div
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <Link to="/select/reading" className="subject-card">
-            <motion.div
-              className="subject-icon"
-              animate={{ rotate: [0, -10, 10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-            >
-              📖
-            </motion.div>
-            <h3>Reading Quest</h3>
-            <p>Explore stories and answer questions!</p>
-            <button className="play-button">Start Playing</button>
-          </Link>
-        </motion.div>
+        <Link to="/select/reading" className="subject-card">
+          <div className="subject-icon">
+            📖
+          </div>
+          <h3>Reading Quest</h3>
+          <p>Explore stories and answer questions!</p>
+          <button className="play-button">Start Playing</button>
+        </Link>
       </div>
     </motion.div>
   );
