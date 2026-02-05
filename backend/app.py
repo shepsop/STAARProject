@@ -8,13 +8,91 @@ import os
 import json
 from datetime import datetime
 import random
+from azure.cosmos import CosmosClient, PartitionKey, exceptions as cosmos_exceptions
+from azure.identity import DefaultAzureCredential
 
 app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
 CORS(app)
 
-# In-memory storage (will be replaced with Cosmos DB)
+# In-memory storage (fallback if Cosmos DB not configured)
 users_data = {}
 questions_data = None
+
+# Cosmos DB (optional)
+cosmos_client = None
+cosmos_container = None
+cosmos_enabled = False
+
+def init_cosmos():
+    """Initialize Cosmos DB if configured via environment variables."""
+    global cosmos_client, cosmos_container, cosmos_enabled
+
+    endpoint = os.getenv("COSMOS_ENDPOINT")
+    if not endpoint:
+        return
+
+    database_name = os.getenv("COSMOS_DATABASE", "staar")
+    container_name = os.getenv("COSMOS_CONTAINER", "users")
+    key = os.getenv("COSMOS_KEY")
+
+    try:
+        if key:
+            cosmos_client = CosmosClient(endpoint, key)
+        else:
+            credential = DefaultAzureCredential()
+            cosmos_client = CosmosClient(endpoint, credential=credential)
+
+        database = cosmos_client.create_database_if_not_exists(database_name)
+        cosmos_container = database.create_container_if_not_exists(
+            id=container_name,
+            partition_key=PartitionKey(path="/user_id")
+        )
+        cosmos_enabled = True
+        print("Cosmos DB enabled for user persistence")
+    except Exception as exc:
+        cosmos_enabled = False
+        cosmos_client = None
+        cosmos_container = None
+        print(f"Cosmos DB not available, using in-memory storage: {exc}")
+
+def default_user(user_id):
+    return {
+        "id": user_id,
+        "user_id": user_id,
+        "total_points": 0,
+        "current_level": 1,
+        "streak_days": 0,
+        "questions_answered": 0,
+        "correct_answers": 0,
+        "badges": [],
+        "last_played": None
+    }
+
+def get_user_record(user_id):
+    if cosmos_enabled and cosmos_container:
+        try:
+            return cosmos_container.read_item(item=user_id, partition_key=user_id)
+        except cosmos_exceptions.CosmosResourceNotFoundError:
+            return None
+    return users_data.get(user_id)
+
+def save_user_record(user):
+    if cosmos_enabled and cosmos_container:
+        cosmos_container.upsert_item(user)
+    else:
+        users_data[user["user_id"]] = user
+
+def get_top_users(limit=10):
+    if cosmos_enabled and cosmos_container:
+        query = "SELECT TOP @limit * FROM c ORDER BY c.total_points DESC"
+        items = cosmos_container.query_items(
+            query=query,
+            parameters=[{"name": "@limit", "value": limit}],
+            enable_cross_partition_query=True
+        )
+        return list(items)
+    sorted_users = sorted(users_data.values(), key=lambda x: x['total_points'], reverse=True)
+    return sorted_users[:limit]
 
 # Load questions from JSON file
 def load_questions():
@@ -43,37 +121,20 @@ def health_check():
 @app.route('/api/user/<user_id>', methods=['GET'])
 def get_user_progress(user_id):
     """Get user progress and stats"""
-    if user_id not in users_data:
-        users_data[user_id] = {
-            "user_id": user_id,
-            "total_points": 0,
-            "current_level": 1,
-            "streak_days": 0,
-            "questions_answered": 0,
-            "correct_answers": 0,
-            "badges": [],
-            "last_played": None
-        }
-    return jsonify(users_data[user_id])
+    user = get_user_record(user_id)
+    if not user:
+        user = default_user(user_id)
+        save_user_record(user)
+    return jsonify(user)
 
 @app.route('/api/user/<user_id>/progress', methods=['POST'])
 def update_user_progress(user_id):
     """Update user progress after completing a question"""
     data = request.json
-    
-    if user_id not in users_data:
-        users_data[user_id] = {
-            "user_id": user_id,
-            "total_points": 0,
-            "current_level": 1,
-            "streak_days": 0,
-            "questions_answered": 0,
-            "correct_answers": 0,
-            "badges": [],
-            "last_played": None
-        }
-    
-    user = users_data[user_id]
+
+    user = get_user_record(user_id)
+    if not user:
+        user = default_user(user_id)
     
     # Update stats
     user['questions_answered'] += 1
@@ -93,6 +154,7 @@ def update_user_progress(user_id):
             })
     
     user['last_played'] = datetime.utcnow().isoformat()
+    save_user_record(user)
     
     return jsonify({
         "user": user,
@@ -127,10 +189,7 @@ def get_questions(subject):
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
     """Get top users by points"""
-    sorted_users = sorted(users_data.values(), 
-                         key=lambda x: x['total_points'], 
-                         reverse=True)
-    return jsonify(sorted_users[:10])
+    return jsonify(get_top_users(10))
 
 # Catch-all route to serve React app for client-side routing
 @app.route('/', defaults={'path': ''})
@@ -140,7 +199,9 @@ def catch_all(path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
 
+load_questions()
+init_cosmos()
+
 if __name__ == '__main__':
-    load_questions()
     port = int(os.environ.get('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=True)
