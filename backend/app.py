@@ -62,10 +62,14 @@ def default_user(user_id):
         "total_points": 0,
         "current_level": 1,
         "streak_days": 0,
+        "longest_streak": 0,
         "questions_answered": 0,
         "correct_answers": 0,
         "badges": [],
-        "last_played": None
+        "last_played": None,
+        "last_played_date": None,
+        "perfect_games": 0,
+        "subjects_completed": {"math": 0, "reading": 0}
     }
 
 def get_user_record(user_id):
@@ -93,6 +97,144 @@ def get_top_users(limit=10):
         return list(items)
     sorted_users = sorted(users_data.values(), key=lambda x: x['total_points'], reverse=True)
     return sorted_users[:limit]
+
+def check_for_badges(user, game_data=None):
+    """Check and award badges based on user achievements"""
+    new_badges = []
+    
+    # First Win Badge
+    if user['questions_answered'] == 1 and user['correct_answers'] == 1:
+        new_badges.append({
+            "id": "first_win",
+            "name": "First Victory",
+            "description": "Answer your first question correctly!",
+            "icon": "🎯",
+            "earned_at": datetime.utcnow().isoformat()
+        })
+    
+    # Milestone Badges
+    milestones = [
+        (10, "novice", "Novice Explorer", "Complete 10 questions", "📚"),
+        (50, "apprentice", "Apprentice Scholar", "Complete 50 questions", "📖"),
+        (100, "expert", "Expert Learner", "Complete 100 questions", "🎓"),
+        (250, "master", "Master Student", "Complete 250 questions", "🏆"),
+        (500, "legend", "Legendary Scholar", "Complete 500 questions", "👑")
+    ]
+    
+    for count, badge_id, name, desc, icon in milestones:
+        if user['questions_answered'] == count:
+            if not any(b.get('id') == badge_id for b in user['badges']):
+                new_badges.append({
+                    "id": badge_id,
+                    "name": name,
+                    "description": desc,
+                    "icon": icon,
+                    "earned_at": datetime.utcnow().isoformat()
+                })
+    
+    # Accuracy Badges
+    if user['questions_answered'] >= 10:
+        accuracy = (user['correct_answers'] / user['questions_answered']) * 100
+        if accuracy >= 90 and not any(b.get('id') == 'sharpshooter' for b in user['badges']):
+            new_badges.append({
+                "id": "sharpshooter",
+                "name": "Sharp Shooter",
+                "description": "Maintain 90%+ accuracy over 10+ questions",
+                "icon": "🎯",
+                "earned_at": datetime.utcnow().isoformat()
+            })
+    
+    # Perfect Game Badge
+    if game_data and game_data.get('perfect_game'):
+        user['perfect_games'] = user.get('perfect_games', 0) + 1
+        new_badges.append({
+            "id": f"perfect_{user['perfect_games']}",
+            "name": "Perfect Game!",
+            "description": "100% accuracy in a game!",
+            "icon": "💯",
+            "earned_at": datetime.utcnow().isoformat()
+        })
+    
+    # Streak Badges
+    streak_milestones = [
+        (3, "streak_3", "3-Day Streak", "Play 3 days in a row", "🔥"),
+        (7, "streak_7", "Week Warrior", "Play 7 days in a row", "⚡"),
+        (14, "streak_14", "Two Week Champion", "Play 14 days in a row", "💪"),
+        (30, "streak_30", "Month Master", "Play 30 days in a row", "🌟")
+    ]
+    
+    for days, badge_id, name, desc, icon in streak_milestones:
+        if user['streak_days'] == days:
+            if not any(b.get('id') == badge_id for b in user['badges']):
+                new_badges.append({
+                    "id": badge_id,
+                    "name": name,
+                    "description": desc,
+                    "icon": icon,
+                    "earned_at": datetime.utcnow().isoformat()
+                })
+    
+    # Subject-specific badges
+    for subject in ['math', 'reading']:
+        subject_count = user.get('subjects_completed', {}).get(subject, 0)
+        if subject_count == 10:
+            badge_id = f"{subject}_starter"
+            if not any(b.get('id') == badge_id for b in user['badges']):
+                icons = {"math": "🔢", "reading": "📖"}
+                new_badges.append({
+                    "id": badge_id,
+                    "name": f"{subject.title()} Starter",
+                    "description": f"Complete 10 {subject} games",
+                    "icon": icons[subject],
+                    "earned_at": datetime.utcnow().isoformat()
+                })
+        elif subject_count == 25:
+            badge_id = f"{subject}_master"
+            if not any(b.get('id') == badge_id for b in user['badges']):
+                icons = {"math": "🧮", "reading": "📚"}
+                new_badges.append({
+                    "id": badge_id,
+                    "name": f"{subject.title()} Master",
+                    "description": f"Complete 25 {subject} games",
+                    "icon": icons[subject],
+                    "earned_at": datetime.utcnow().isoformat()
+                })
+    
+    return new_badges
+
+def update_streak(user):
+    """Update user's daily streak"""
+    now = datetime.utcnow()
+    today = now.date().isoformat()
+    
+    last_played_date = user.get('last_played_date')
+    
+    if last_played_date:
+        from datetime import datetime as dt
+        last_date = dt.fromisoformat(last_played_date).date()
+        current_date = now.date()
+        days_diff = (current_date - last_date).days
+        
+        if days_diff == 0:
+            # Already played today, no streak change
+            return user['streak_days'], False
+        elif days_diff == 1:
+            # Consecutive day - increase streak
+            user['streak_days'] += 1
+            user['longest_streak'] = max(user.get('longest_streak', 0), user['streak_days'])
+            streak_bonus = user['streak_days'] * 10  # Bonus points for streak
+            return streak_bonus, True
+        else:
+            # Streak broken
+            user['streak_days'] = 1
+            return 0, True
+    else:
+        # First time playing
+        user['streak_days'] = 1
+        return 0, True
+    
+    user['last_played_date'] = today
+    return 0, False
 
 # Load questions from JSON file
 def load_questions():
@@ -129,37 +271,58 @@ def get_user_progress(user_id):
 
 @app.route('/api/user/<user_id>/progress', methods=['POST'])
 def update_user_progress(user_id):
-    """Update user progress after completing a question"""
+    """Update user progress after completing a question or game"""
     data = request.json
 
     user = get_user_record(user_id)
     if not user:
         user = default_user(user_id)
     
+    # Update streak
+    streak_bonus, streak_updated = update_streak(user)
+    
+    # Track subject completion
+    subject = data.get('subject', '')
+    if subject and data.get('game_completed'):
+        if 'subjects_completed' not in user:
+            user['subjects_completed'] = {"math": 0, "reading": 0}
+        user['subjects_completed'][subject] = user['subjects_completed'].get(subject, 0) + 1
+    
     # Update stats
     user['questions_answered'] += 1
+    level_up = False
+    new_badges = []
+    
     if data.get('correct'):
         user['correct_answers'] += 1
         points_earned = data.get('points', 10)
-        user['total_points'] += points_earned
+        user['total_points'] += points_earned + streak_bonus
         
         # Check for level up
         points_needed_for_next_level = user['current_level'] * 300
         if user['total_points'] >= points_needed_for_next_level:
             user['current_level'] += 1
-            user['badges'].append({
-                "type": "level_up",
-                "level": user['current_level'],
-                "earned_at": datetime.utcnow().isoformat()
-            })
+            level_up = True
+    
+    # Check for new badges
+    game_data = {
+        'perfect_game': data.get('perfect_game', False)
+    }
+    new_badges = check_for_badges(user, game_data)
+    
+    # Add new badges to user's collection
+    if new_badges:
+        user['badges'].extend(new_badges)
     
     user['last_played'] = datetime.utcnow().isoformat()
     save_user_record(user)
     
     return jsonify({
         "user": user,
-        "level_up": len([b for b in user['badges'] if b['type'] == 'level_up' and 
-                        b.get('earned_at', '') == user['last_played']]) > 0
+        "level_up": level_up,
+        "new_badges": new_badges,
+        "streak_bonus": streak_bonus,
+        "streak_updated": streak_updated
     })
 
 @app.route('/api/questions/<subject>', methods=['GET'])

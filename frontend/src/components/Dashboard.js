@@ -12,6 +12,23 @@ function Dashboard({ userProgress }) {
     ? Math.round((userProgress.correct_answers / userProgress.questions_answered) * 100)
     : 0;
 
+  // Reward milestones (configurable by parent)
+  const rewards = [
+    { points: 100, reward: "15 min extra screen time", icon: "📱" },
+    { points: 250, reward: "Special dessert", icon: "🍰" },
+    { points: 500, reward: "Movie night pick", icon: "🎬" },
+    { points: 750, reward: "Small toy or book", icon: "🎁" },
+    { points: 1000, reward: "Fun outing", icon: "🎉" },
+    { points: 1500, reward: "Big reward!", icon: "🏆" }
+  ];
+
+  // Find next reward
+  const nextReward = rewards.find(r => r.points > userProgress.total_points) || rewards[rewards.length - 1];
+  const progressToReward = nextReward ? ((userProgress.total_points % nextReward.points) / nextReward.points) * 100 : 100;
+
+  // Get recent badges (last 3)
+  const recentBadges = (userProgress.badges || []).slice(-6).reverse();
+
   return (
     <motion.div 
       className="dashboard"
@@ -27,6 +44,23 @@ function Dashboard({ userProgress }) {
         >
           Welcome Back, Star Student! 🌟
         </motion.h2>
+        
+        {/* Streak Display */}
+        {userProgress.streak_days > 0 && (
+          <motion.div 
+            className="streak-banner"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', delay: 0.2 }}
+          >
+            <div className="streak-flame">🔥</div>
+            <div className="streak-info">
+              <div className="streak-number">{userProgress.streak_days} Day Streak!</div>
+              <div className="streak-text">Keep it going! Play every day!</div>
+            </div>
+          </motion.div>
+        )}
+        
         <p style={{ fontSize: '1.3rem', color: '#666', marginBottom: '1rem' }}>
           You're on Level {userProgress.current_level}! Keep going!
         </p>
@@ -47,6 +81,7 @@ function Dashboard({ userProgress }) {
           </div>
         </div>
 
+        {/* Stats Grid */}
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
@@ -75,6 +110,53 @@ function Dashboard({ userProgress }) {
             <div style={{ color: '#666' }}>Questions Done</div>
           </div>
         </div>
+
+        {/* Reward Progress */}
+        {nextReward && (
+          <div style={{ marginTop: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+                Next Reward: {nextReward.reward} {nextReward.icon}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                {nextReward.points - userProgress.total_points} pts to go!
+              </div>
+            </div>
+            <div className="progress-bar" style={{ background: '#ffe0b2' }}>
+              <motion.div 
+                className="progress-fill"
+                style={{ background: 'linear-gradient(90deg, #ff9800 0%, #ff5722 100%)' }}
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(progressToReward, 100)}%` }}
+                transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Badges Section */}
+        {recentBadges.length > 0 && (
+          <div style={{ marginTop: '2rem' }}>
+            <h3 style={{ color: '#667eea', marginBottom: '1rem', fontSize: '1.5rem' }}>
+              🏆 Your Badges ({userProgress.badges.length})
+            </h3>
+            <div className="badges-grid">
+              {recentBadges.map((badge, index) => (
+                <motion.div
+                  key={index}
+                  className="badge-card"
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: index * 0.1, type: 'spring' }}
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                >
+                  <div className="badge-icon">{badge.icon}</div>
+                  <div className="badge-name">{badge.name}</div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <h2 style={{ color: 'white', textAlign: 'center', marginBottom: '2rem', fontSize: '2rem' }}>

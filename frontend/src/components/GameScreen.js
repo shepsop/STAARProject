@@ -19,6 +19,8 @@ function GameScreen({ userId, userProgress, updateProgress }) {
   const [loading, setLoading] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
   const [leveledUp, setLeveledUp] = useState(false);
+  const [newBadges, setNewBadges] = useState([]);
+  const [streakBonus, setStreakBonus] = useState(0);
 
   useEffect(() => {
     fetchQuestions();
@@ -68,6 +70,14 @@ function GameScreen({ userId, userProgress, updateProgress }) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 5000);
       }
+
+      if (result?.streak_bonus) {
+        setStreakBonus(result.streak_bonus);
+      }
+
+      if (result?.new_badges && result.new_badges.length > 0) {
+        setNewBadges(prev => [...prev, ...result.new_badges]);
+      }
     } else {
       await updateProgress({
         correct: false,
@@ -78,14 +88,31 @@ function GameScreen({ userId, userProgress, updateProgress }) {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
     } else {
+      // Game finished - check for perfect game
+      const isPerfectGame = correctCount === questions.length;
+      
+      // Send game completion update
+      const result = await updateProgress({
+        correct: false,
+        points: 0,
+        subject: subject,
+        level: parseInt(level),
+        game_completed: true,
+        perfect_game: isPerfectGame
+      });
+
+      if (result?.new_badges && result.new_badges.length > 0) {
+        setNewBadges(result.new_badges);
+      }
+      
       setGameFinished(true);
-      if (correctCount >= questions.length * 0.7) {
+      if (correctCount >= questions.length * 0.7 || isPerfectGame) {
         setShowConfetti(true);
       }
     }
@@ -169,6 +196,54 @@ function GameScreen({ userId, userProgress, updateProgress }) {
               }}
             >
               🎊 LEVEL UP! You're now Level {userProgress.current_level}! 🎊
+            </motion.div>
+          )}
+
+          {/* New Badges Earned */}
+          {newBadges.length > 0 && (
+            <motion.div
+              initial={{ scale: 0, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              transition={{ type: 'spring', delay: 0.5 }}
+              style={{ margin: '1rem 0' }}
+            >
+              <h3 style={{ color: '#667eea', marginBottom: '1rem' }}>🎉 New Badges Earned!</h3>
+              <div className="badges-earned">
+                {newBadges.map((badge, idx) => (
+                  <motion.div
+                    key={idx}
+                    className="badge-notification"
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.6 + idx * 0.1, type: 'spring' }}
+                  >
+                    <div className="badge-icon-large">{badge.icon}</div>
+                    <div className="badge-info">
+                      <div className="badge-name-large">{badge.name}</div>
+                      <div className="badge-desc">{badge.description}</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Streak Bonus */}
+          {streakBonus > 0 && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', delay: 0.4 }}
+              style={{
+                background: 'linear-gradient(135deg, #ff9800 0%, #ff5722 100%)',
+                color: 'white',
+                padding: '1rem',
+                borderRadius: '15px',
+                margin: '1rem 0',
+                fontSize: '1.2rem'
+              }}
+            >
+              🔥 Streak Bonus: +{streakBonus} points!
             </motion.div>
           )}
 
