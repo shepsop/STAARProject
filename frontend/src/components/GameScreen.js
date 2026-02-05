@@ -394,7 +394,11 @@ function GameScreen({ userId, userProgress, updateProgress }) {
               >
                 <strong>{isCorrect ? '✅ Correct!' : '❌ Not quite!'}</strong>
                 <br />
-                {currentQuestion.explanation}
+                {isCorrect 
+                  ? currentQuestion.explanation
+                  : currentQuestion.explanation
+                      .replace(/^(Perfect|Great|Excellent|Amazing|Wonderful|Super|Fantastic|Awesome|Outstanding|Brilliant|Nice work|Good job)!\s*/i, 'The correct answer is: ')
+                }
               </motion.div>
               <button className="next-button" onClick={handleNext}>
                 {currentQuestionIndex < questions.length - 1 ? 'Next Question →' : 'See Results! 🎉'}
