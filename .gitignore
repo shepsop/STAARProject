@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+*.pyc
+__pycache__/
+.env
+.env.local
+.DS_Store
+*.log
+.vscode/
+.idea/
+*.swp
+*.swo
+coverage/
+.pytest_cache/

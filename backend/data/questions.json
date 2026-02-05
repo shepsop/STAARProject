@@ -1,0 +1,152 @@
+{
+  "math": [
+    {
+      "id": "m1",
+      "level": 1,
+      "question": "What is 5 + 7?",
+      "options": ["10", "11", "12", "13"],
+      "correct_answer": 2,
+      "explanation": "Great job! 5 + 7 = 12. When you count 5 fingers and add 7 more, you get 12!",
+      "points": 10,
+      "category": "addition"
+    },
+    {
+      "id": "m2",
+      "level": 1,
+      "question": "Sarah has 8 cookies. She eats 3 cookies. How many cookies does she have left?",
+      "options": ["3", "4", "5", "6"],
+      "correct_answer": 2,
+      "explanation": "Excellent! 8 - 3 = 5. Sarah has 5 cookies left to enjoy!",
+      "points": 10,
+      "category": "subtraction"
+    },
+    {
+      "id": "m3",
+      "level": 1,
+      "question": "What is 4 × 3?",
+      "options": ["7", "10", "12", "15"],
+      "correct_answer": 2,
+      "explanation": "Amazing! 4 × 3 = 12. Think of it as 4 groups of 3!",
+      "points": 15,
+      "category": "multiplication"
+    },
+    {
+      "id": "m4",
+      "level": 2,
+      "question": "A rectangle has a length of 6 inches and a width of 4 inches. What is the area?",
+      "options": ["10 sq in", "20 sq in", "24 sq in", "30 sq in"],
+      "correct_answer": 2,
+      "explanation": "Perfect! Area = length × width = 6 × 4 = 24 square inches!",
+      "points": 20,
+      "category": "geometry"
+    },
+    {
+      "id": "m5",
+      "level": 2,
+      "question": "What is 48 ÷ 6?",
+      "options": ["6", "7", "8", "9"],
+      "correct_answer": 2,
+      "explanation": "Fantastic! 48 ÷ 6 = 8. You're a division star!",
+      "points": 20,
+      "category": "division"
+    },
+    {
+      "id": "m6",
+      "level": 2,
+      "question": "Which fraction is equivalent to 1/2?",
+      "options": ["2/3", "3/6", "1/4", "2/5"],
+      "correct_answer": 1,
+      "explanation": "Super work! 3/6 is the same as 1/2 because both halves are equal!",
+      "points": 20,
+      "category": "fractions"
+    },
+    {
+      "id": "m7",
+      "level": 3,
+      "question": "If a pattern goes 2, 4, 8, 16, what comes next?",
+      "options": ["20", "24", "28", "32"],
+      "correct_answer": 3,
+      "explanation": "Brilliant! Each number is doubled. 16 × 2 = 32!",
+      "points": 30,
+      "category": "patterns"
+    },
+    {
+      "id": "m8",
+      "level": 3,
+      "question": "What is the perimeter of a square with sides of 7 cm?",
+      "options": ["14 cm", "21 cm", "28 cm", "35 cm"],
+      "correct_answer": 2,
+      "explanation": "Outstanding! Perimeter = 7 + 7 + 7 + 7 = 28 cm!",
+      "points": 30,
+      "category": "geometry"
+    }
+  ],
+  "reading": [
+    {
+      "id": "r1",
+      "level": 1,
+      "passage": "The sun was shining brightly in the sky. Emma put on her favorite red hat and went outside to play. She saw a butterfly flying near the flowers in her garden.",
+      "question": "What color was Emma's hat?",
+      "options": ["Blue", "Red", "Yellow", "Green"],
+      "correct_answer": 1,
+      "explanation": "Perfect! The story says Emma wore her favorite RED hat!",
+      "points": 10,
+      "category": "details"
+    },
+    {
+      "id": "r2",
+      "level": 1,
+      "passage": "The sun was shining brightly in the sky. Emma put on her favorite red hat and went outside to play. She saw a butterfly flying near the flowers in her garden.",
+      "question": "Where did Emma see the butterfly?",
+      "options": ["In the house", "Near the flowers", "At school", "In the sky"],
+      "correct_answer": 1,
+      "explanation": "Great reading! The butterfly was flying near the flowers!",
+      "points": 10,
+      "category": "details"
+    },
+    {
+      "id": "r3",
+      "level": 2,
+      "passage": "Tommy loved playing basketball. Every day after school, he would practice shooting hoops in his driveway. His goal was to make 20 baskets in a row. On Friday, he finally did it! Tommy jumped up and down with joy.",
+      "question": "What was Tommy's goal?",
+      "options": ["Play with friends", "Make 20 baskets in a row", "Win a game", "Buy new shoes"],
+      "correct_answer": 1,
+      "explanation": "Excellent comprehension! Tommy wanted to make 20 baskets in a row!",
+      "points": 15,
+      "category": "main-idea"
+    },
+    {
+      "id": "r4",
+      "level": 2,
+      "passage": "Tommy loved playing basketball. Every day after school, he would practice shooting hoops in his driveway. His goal was to make 20 baskets in a row. On Friday, he finally did it! Tommy jumped up and down with joy.",
+      "question": "How did Tommy feel when he reached his goal?",
+      "options": ["Sad", "Angry", "Joyful", "Tired"],
+      "correct_answer": 2,
+      "explanation": "Wonderful! Tommy was joyful - he jumped up and down with joy!",
+      "points": 15,
+      "category": "inference"
+    },
+    {
+      "id": "r5",
+      "level": 3,
+      "passage": "The old lighthouse stood tall on the rocky cliff. For over 100 years, it had guided ships safely to shore. Captain Maria looked up at the bright beam of light cutting through the foggy night. She knew that without the lighthouse, her ship might crash into the dangerous rocks below.",
+      "question": "What is the main purpose of the lighthouse?",
+      "options": ["To look pretty", "To guide ships safely", "To be a home", "To tell time"],
+      "correct_answer": 1,
+      "explanation": "Perfect understanding! The lighthouse guides ships safely to shore!",
+      "points": 25,
+      "category": "main-idea"
+    },
+    {
+      "id": "r6",
+      "level": 3,
+      "passage": "The old lighthouse stood tall on the rocky cliff. For over 100 years, it had guided ships safely to shore. Captain Maria looked up at the bright beam of light cutting through the foggy night. She knew that without the lighthouse, her ship might crash into the dangerous rocks below.",
+      "question": "What can you infer about the night when Captain Maria saw the lighthouse?",
+      "options": ["It was sunny", "It was foggy and dangerous", "It was raining", "It was very cold"],
+      "correct_answer": 1,
+      "explanation": "Brilliant inference! The passage mentions 'foggy night' and 'dangerous rocks'!",
+      "points": 25,
+      "category": "inference"
+    }
+  ]
+}
