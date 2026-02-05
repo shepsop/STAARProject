@@ -144,7 +144,7 @@ def update_user_progress(user_id):
         user['total_points'] += points_earned
         
         # Check for level up
-        points_needed_for_next_level = user['current_level'] * 100
+        points_needed_for_next_level = user['current_level'] * 300
         if user['total_points'] >= points_needed_for_next_level:
             user['current_level'] += 1
             user['badges'].append({
