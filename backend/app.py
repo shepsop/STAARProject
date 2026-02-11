@@ -1,18 +1,27 @@
 """
-STAAR Test Prep - Flask Backend API
-Handles user progress, questions, and scoring
+STAAR Test Prep - Flask Backend API with Multi-User Authentication
+Handles user registration, login, progress tracking, and scoring
 """
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
+import uuid
+import bcrypt
+import jwt
+from functools import wraps
 from azure.cosmos import CosmosClient, PartitionKey, exceptions as cosmos_exceptions
 from azure.identity import DefaultAzureCredential
 
 app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
 CORS(app)
+
+# JWT Configuration
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "staar-quest-secret-key-change-in-production")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24 * 7  # 1 week
 
 # In-memory storage (fallback if Cosmos DB not configured)
 users_data = {}
@@ -21,11 +30,13 @@ questions_data = None
 # Cosmos DB (optional)
 cosmos_client = None
 cosmos_container = None
+cosmos_users_container = None
 cosmos_enabled = False
+
 
 def init_cosmos():
     """Initialize Cosmos DB if configured via environment variables."""
-    global cosmos_client, cosmos_container, cosmos_enabled
+    global cosmos_client, cosmos_container, cosmos_users_container, cosmos_enabled
 
     endpoint = os.getenv("COSMOS_ENDPOINT")
     if not endpoint:
@@ -47,18 +58,79 @@ def init_cosmos():
             id=container_name,
             partition_key=PartitionKey(path="/user_id")
         )
+        cosmos_users_container = database.create_container_if_not_exists(
+            id="auth_users",
+            partition_key=PartitionKey(path="/username")
+        )
         cosmos_enabled = True
-        print("Cosmos DB enabled for user persistence")
+        print("✓ Cosmos DB enabled for user persistence")
     except Exception as exc:
         cosmos_enabled = False
         cosmos_client = None
         cosmos_container = None
-        print(f"Cosmos DB not available, using in-memory storage: {exc}")
+        cosmos_users_container = None
+        print(f"⚠ Cosmos DB not available, using in-memory storage: {exc}")
 
-def default_user(user_id):
+
+def hash_password(password):
+    """Hash a password using bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(password, hashed):
+    """Verify a password against its hash"""
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+
+def generate_token(user_id):
+    """Generate JWT token"""
+    payload = {
+        'user_id': user_id,
+        'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def verify_token(token):
+    """Verify JWT token and return user_id"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload.get('user_id')
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+
+def token_required(f):
+    """Decorator to require valid JWT token"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                token = auth_header.split(" ")[1]
+            except IndexError:
+                return jsonify({'error': 'Invalid token format'}), 401
+
+        if not token:
+            return jsonify({'error': 'Token is missing'}), 401
+
+        user_id = verify_token(token)
+        if not user_id:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        return f(user_id, *args, **kwargs)
+    return decorated
+
+
+def default_user(user_id, username=None):
+    """Create default user record"""
     return {
         "id": user_id,
         "user_id": user_id,
+        "username": username or user_id,
         "total_points": 0,
         "current_level": 1,
         "streak_days": 0,
@@ -69,10 +141,37 @@ def default_user(user_id):
         "last_played": None,
         "last_played_date": None,
         "perfect_games": 0,
-        "subjects_completed": {"math": 0, "reading": 0}
+        "subjects_completed": {"math": 0, "reading": 0},
+        "created_at": datetime.utcnow().isoformat()
     }
 
+
+def get_auth_user(username):
+    """Get authentication record for a user"""
+    if cosmos_enabled and cosmos_users_container:
+        try:
+            return cosmos_users_container.read_item(item=username, partition_key=username)
+        except cosmos_exceptions.CosmosResourceNotFoundError:
+            return None
+    return None
+
+
+def save_auth_user(username, password_hash, user_id):
+    """Save authentication record"""
+    auth_record = {
+        "id": username,
+        "username": username,
+        "password_hash": password_hash,
+        "user_id": user_id,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    if cosmos_enabled and cosmos_users_container:
+        cosmos_users_container.upsert_item(auth_record)
+    return auth_record
+
+
 def get_user_record(user_id):
+    """Get user progress record"""
     if cosmos_enabled and cosmos_container:
         try:
             return cosmos_container.read_item(item=user_id, partition_key=user_id)
@@ -80,13 +179,17 @@ def get_user_record(user_id):
             return None
     return users_data.get(user_id)
 
+
 def save_user_record(user):
+    """Save user progress record"""
     if cosmos_enabled and cosmos_container:
         cosmos_container.upsert_item(user)
     else:
         users_data[user["user_id"]] = user
 
+
 def get_top_users(limit=10):
+    """Get top users by points"""
     if cosmos_enabled and cosmos_container:
         query = "SELECT TOP @limit * FROM c ORDER BY c.total_points DESC"
         items = cosmos_container.query_items(
@@ -97,6 +200,7 @@ def get_top_users(limit=10):
         return list(items)
     sorted_users = sorted(users_data.values(), key=lambda x: x['total_points'], reverse=True)
     return sorted_users[:limit]
+
 
 def check_for_badges(user, game_data=None):
     """Check and award badges based on user achievements"""
@@ -202,6 +306,7 @@ def check_for_badges(user, game_data=None):
     
     return new_badges
 
+
 def update_streak(user):
     """Update user's daily streak"""
     now = datetime.utcnow()
@@ -210,8 +315,7 @@ def update_streak(user):
     last_played_date = user.get('last_played_date')
     
     if last_played_date:
-        from datetime import datetime as dt
-        last_date = dt.fromisoformat(last_played_date).date()
+        last_date = datetime.fromisoformat(last_played_date).date()
         current_date = now.date()
         days_diff = (current_date - last_date).days
         
@@ -236,42 +340,127 @@ def update_streak(user):
     user['last_played_date'] = today
     return 0, False
 
-# Load questions from JSON file
+
 def load_questions():
+    """Load questions from JSON file"""
     global questions_data
     questions_file = os.path.join(os.path.dirname(__file__), 'data', 'questions.json')
     if os.path.exists(questions_file):
         with open(questions_file, 'r') as f:
             questions_data = json.load(f)
     else:
-        # Default questions if file doesn't exist
-        questions_data = {
-            "math": [],
-            "reading": []
-        }
+        questions_data = {"math": [], "reading": []}
+
+
+# ============ API ROUTES ============
 
 @app.route('/')
 def serve():
     """Serve the React frontend"""
     return send_from_directory(app.static_folder, 'index.html')
 
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()})
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "cosmosEnabled": cosmos_enabled
+    })
+
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    """Register a new user"""
+    data = request.json
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    
+    # Validation
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+    
+    if len(username) < 3:
+        return jsonify({'error': 'Username must be at least 3 characters'}), 400
+    
+    if len(password) < 4:
+        return jsonify({'error': 'Password must be at least 4 characters'}), 400
+    
+    # Check if user already exists
+    existing = get_auth_user(username)
+    if existing:
+        return jsonify({'error': 'Username already exists'}), 409
+    
+    # Create new user
+    user_id = str(uuid.uuid4())
+    password_hash = hash_password(password)
+    
+    # Save auth record and user progress record
+    save_auth_user(username, password_hash, user_id)
+    user_progress = default_user(user_id, username)
+    save_user_record(user_progress)
+    
+    # Generate token
+    token = generate_token(user_id)
+    
+    return jsonify({
+        'message': 'User registered successfully',
+        'token': token,
+        'user_id': user_id,
+        'username': username
+    }), 201
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Login a user"""
+    data = request.json
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+    
+    # Get auth record
+    auth_user = get_auth_user(username)
+    if not auth_user or not verify_password(password, auth_user['password_hash']):
+        return jsonify({'error': 'Invalid username or password'}), 401
+    
+    user_id = auth_user['user_id']
+    token = generate_token(user_id)
+    
+    return jsonify({
+        'message': 'Login successful',
+        'token': token,
+        'user_id': user_id,
+        'username': username
+    }), 200
+
 
 @app.route('/api/user/<user_id>', methods=['GET'])
-def get_user_progress(user_id):
+@token_required
+def get_user_progress(authenticated_user_id, user_id):
     """Get user progress and stats"""
+    # Only allow users to access their own data
+    if authenticated_user_id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     user = get_user_record(user_id)
     if not user:
         user = default_user(user_id)
         save_user_record(user)
     return jsonify(user)
 
+
 @app.route('/api/user/<user_id>/progress', methods=['POST'])
-def update_user_progress(user_id):
+@token_required
+def update_user_progress(authenticated_user_id, user_id):
     """Update user progress after completing a question or game"""
+    # Only allow users to update their own data
+    if authenticated_user_id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     data = request.json
 
     user = get_user_record(user_id)
@@ -305,9 +494,7 @@ def update_user_progress(user_id):
             level_up = True
     
     # Check for new badges
-    game_data = {
-        'perfect_game': data.get('perfect_game', False)
-    }
+    game_data = {'perfect_game': data.get('perfect_game', False)}
     new_badges = check_for_badges(user, game_data)
     
     # Add new badges to user's collection
@@ -315,6 +502,7 @@ def update_user_progress(user_id):
         user['badges'].extend(new_badges)
     
     user['last_played'] = datetime.utcnow().isoformat()
+    user['last_played_date'] = datetime.utcnow().date().isoformat()
     save_user_record(user)
     
     return jsonify({
@@ -324,6 +512,7 @@ def update_user_progress(user_id):
         "streak_bonus": streak_bonus,
         "streak_updated": streak_updated
     })
+
 
 @app.route('/api/questions/<subject>', methods=['GET'])
 def get_questions(subject):
@@ -349,10 +538,12 @@ def get_questions(subject):
     
     return jsonify(selected)
 
+
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
     """Get top users by points"""
     return jsonify(get_top_users(10))
+
 
 # Catch-all route to serve React app for client-side routing
 @app.route('/', defaults={'path': ''})
@@ -362,6 +553,8 @@ def catch_all(path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
 
+
+# Initialize app
 load_questions()
 init_cosmos()
 

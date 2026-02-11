@@ -136,6 +136,39 @@ body::before {
   font-family: 'Press Start 2P', monospace;
 }
 
+.stat-item.user-info {
+  box-shadow: 
+    inset 0 0 0 2px #00ffff,
+    4px 4px 0 #ff00ff;
+}
+
+.logout-button {
+  background: #ff0000;
+  color: #fff;
+  border: 4px solid #fff;
+  padding: 0.5rem 1rem;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 
+    inset 0 0 0 2px #000,
+    4px 4px 0 #ffff00;
+}
+
+.logout-button:hover {
+  background: #cc0000;
+  box-shadow: 
+    inset 0 0 0 2px #000,
+    6px 6px 0 #ffff00;
+}
+
+.logout-button:active {
+  box-shadow: 
+    inset 0 0 0 2px #000,
+    2px 2px 0 #ffff00;
+}
+
 /* Loading Screen */
 .loading-screen {
   display: flex;
