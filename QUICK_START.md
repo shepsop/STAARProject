@@ -15,9 +15,9 @@ In a new terminal:
 ```bash
 cd /Users/robert/projects/STAARProject
 python3 -m venv venv             # Create Python virtual environment
-source venv/bin/activate         # Activate Python virtual environment
+source venv/bin/activate    
+cd backend     # Activate Python virtual environment
 pip install -r requirements.txt  # Install Flask and dependencies
-cd backend
 python app.py
 ```
 The backend will start on http://localhost:8000
