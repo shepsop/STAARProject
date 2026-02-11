@@ -10,11 +10,13 @@ npm install
 ```
 This will take 2-3 minutes to download all React dependencies.
 
-### Step 2: Start the Backend
+### Step 2: Install Backend Dependencies & Start the Backend
 In a new terminal:
 ```bash
 cd /Users/robert/projects/STAARProject
-source venv/bin/activate  # Activate Python virtual environment
+python3 -m venv venv             # Create Python virtual environment
+source venv/bin/activate         # Activate Python virtual environment
+pip install -r requirements.txt  # Install Flask and dependencies
 cd backend
 python app.py
 ```
