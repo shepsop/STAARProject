@@ -13,3 +13,8 @@ __pycache__/
 *.swo
 coverage/
 .pytest_cache/
+package-lock.json
+venv
+.vent
+.github
+
