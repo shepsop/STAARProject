@@ -16,7 +16,7 @@
 docker build -t staar-quest .
 
 # Test locally
-docker run -p 8000:8000 staar-questd
+docker run -p 8000:8000 staar-quest
 
 # Visit http://localhost:8000 to verify it works
 ```
@@ -111,9 +111,11 @@ az webapp show --name staar-quest-app --resource-group <your-resource-group> --q
 
 Visit `https://<your-app-name>.azurewebsites.net` to see your app!
 
-## Adding Azure Cosmos DB (Optional)
+## Adding Azure Cosmos DB (✅ Implemented)
 
-To persist user data across sessions:
+✅ **STATUS**: Cosmos DB is now fully integrated and running in production.
+
+To set up Cosmos DB for an existing deployment:
 
 ### Create Cosmos DB
 
@@ -211,5 +213,19 @@ az monitor app-insights component create \
 6. Regularly update dependencies
 
 ---
+
+## Deployment Status
+
+✅ **STAAR Quest is now deployed on Azure with Cosmos DB integration**
+
+| Component | Status | Details |
+|-----------|--------|----------|
+| App Service | ✅ Running | `staar-quest-app` in West US 3 |
+| Container Registry | ✅ Active | Image: `staarquestreg.azurecr.io/staar-quest:latest` |
+| Cosmos DB | ✅ Active | `staar-quest-cosmos` with `users` and `auth_users` containers |
+| User Data Persistence | ✅ Live | All user progress stored in Cosmos DB |
+| Frontend | ✅ Accessible | https://staar-quest-app.azurewebsites.net |
+
+For details on Cosmos DB implementation, see [COSMOS_DB_INTEGRATION.md](COSMOS_DB_INTEGRATION.md).
 
 For questions or issues, refer to [Azure App Service documentation](https://docs.microsoft.com/azure/app-service/).

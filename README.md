@@ -15,7 +15,7 @@ An engaging, gamified web application designed to help 4th graders prepare for t
 
 - **Frontend**: React 18 with Framer Motion for animations
 - **Backend**: Python Flask API
-- **Database**: Azure Cosmos DB (optional, currently using in-memory storage)
+- **Database**: Azure Cosmos DB (✅ Live in production)
 - **Deployment**: Azure App Service
 - **Styling**: Custom CSS with responsive design
 
