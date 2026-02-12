@@ -392,6 +392,161 @@ body::before {
   line-height: 1.6;
 }
 
+/* Gamification Phase 1 Styles */
+
+/* Combo Display */
+.combo-display {
+  position: fixed;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  padding: 1.5rem 2rem;
+  border-radius: 20px;
+  font-size: 2rem;
+  font-weight: bold;
+  z-index: 1000;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  text-align: center;
+  border: 4px solid #fff;
+}
+
+/* Character Mascot */
+.character-mascot {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  font-size: 4rem;
+  z-index: 1000;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+/* Mystery Box */
+.mystery-box-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #333;
+  padding: 2rem;
+  border-radius: 20px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  z-index: 1001;
+  box-shadow: 
+    0 15px 40px rgba(0,0,0,0.4),
+    inset 0 0 0 4px #fff,
+    inset 0 0 0 8px #ffa500;
+  text-align: center;
+  min-width: 300px;
+  border: 6px solid #000;
+}
+
+/* Challenge Notification */
+.challenge-notification {
+  position: fixed;
+  right: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 15px;
+  font-size: 1rem;
+  z-index: 999;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+  max-width: 300px;
+  border: 3px solid #000;
+}
+
+/* Daily Challenges Container */
+.daily-challenges {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem;
+  border-radius: 15px;
+  margin-top: 1.5rem;
+  color: white;
+  border: 4px solid #000;
+  box-shadow: 6px 6px 0 #000;
+}
+
+.challenge-card {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 1rem;
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: transform 0.2s;
+}
+
+.challenge-card:hover {
+  transform: translateX(4px);
+}
+
+.challenge-progress-bar {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.challenge-progress-fill {
+  height: 100%;
+  transition: width 1s ease-out;
+}
+
+/* Combo Banner on Dashboard */
+.combo-banner {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  padding: 1rem;
+  border-radius: 15px;
+  margin-top: 1rem;
+  color: white;
+  text-align: center;
+  border: 4px solid #000;
+  box-shadow: 6px 6px 0 #000;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* Badges Earned Display */
+.badges-earned {
+  display: grid;
+  gap: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .combo-display {
+    font-size: 1.5rem;
+    padding: 1rem 1.5rem;
+  }
+  
+  .character-mascot {
+    font-size: 3rem;
+    top: 10px;
+    right: 10px;
+  }
+  
+  .mystery-box-popup {
+    font-size: 1.2rem;
+    padding: 1.5rem;
+    min-width: 250px;
+  }
+  
+  .challenge-notification {
+    max-width: 250px;
+    font-size: 0.9rem;
+  }
+}
+
 .progress-bar {
   width: 100%;
   height: 30px;

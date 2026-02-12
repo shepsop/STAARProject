@@ -21,6 +21,66 @@ function GameScreen({ userId, userProgress, updateProgress }) {
   const [leveledUp, setLeveledUp] = useState(false);
   const [newBadges, setNewBadges] = useState([]);
   const [streakBonus, setStreakBonus] = useState(0);
+  
+  // New gamification states
+  const [currentCombo, setCurrentCombo] = useState(0);
+  const [showCombo, setShowCombo] = useState(false);
+  const [comboMultiplier, setComboMultiplier] = useState(1.0);
+  const [mysteryBox, setMysteryBox] = useState(null);
+  const [showMysteryBox, setShowMysteryBox] = useState(false);
+  const [characterMood, setCharacterMood] = useState('happy'); // happy, excited, encouraging
+  const [completedChallenges, setCompletedChallenges] = useState([]);
+
+  // Sound effects
+  const playSound = (soundType) => {
+    const sounds = {
+      correct: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBi6Fzffei0QHGH7A7OScTw4RVKzn7rVjGgU7k9v0yX0vBSZ+zPLaizsIGGe57OihUxELTqXh8L1qJAU3id31zpBAChdb8/LHby0FKH3J8duKPwgZb77r6RQMBR='),
+      wrong: new Audio('data:audio/wav;base64,UklGRnQIAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAIAACAgICAfoB9gHuAeYB3gHWAc4BxgG+AboBsgGqAaIBlgGOAYYBegFyAWYBXgFWAU4BQgE6ATIBJgEeARYBCgECAPoA7gDmANwA1gDKAMIAugCyAKYAngCWAI4AggB6AHIAZFw=='),
+      levelup: new Audio('data:audio/wav;base64,UklGRkoIAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSYIAACAgIGCgISChYKGgoeEiIOJgomDioKLgoyBjYCOfY99jn2PfZB8kXuSeZN4lHiVd5Z2l3WYdJlzmnKbcZxvnW6ebaZsq2itra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNr667sbJ0='),
+      combo: new Audio('data:audio/wav;base64,UklGRiQEAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAEAAB/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gA=='),
+      mysteryBox: new Audio('data:audio/wav;base64,UklGRiQEAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAEAAB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=')
+    };
+    
+    try {
+      // Create a simple beep sound using Web Audio API for better compatibility
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      if (soundType === 'correct') {
+        oscillator.frequency.value = 800;
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } else if (soundType === 'wrong') {
+        oscillator.frequency.value = 200;
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.4);
+      } else if (soundType === 'combo') {
+        oscillator.frequency.value = 1200;
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+      } else if (soundType === 'mysteryBox') {
+        oscillator.frequency.value = 600;
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.3);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      }
+    } catch (e) {
+      // Silently fail if audio is not supported
+      console.log('Audio not supported');
+    }
+  };
 
   useEffect(() => {
     fetchQuestions();
@@ -53,6 +113,9 @@ function GameScreen({ userId, userProgress, updateProgress }) {
     setShowExplanation(true);
 
     if (isCorrect) {
+      playSound('correct');
+      setCharacterMood('excited');
+      
       const points = currentQuestion.points || 10;
       setScore(score + points);
       setCorrectCount(correctCount + 1);
@@ -64,6 +127,17 @@ function GameScreen({ userId, userProgress, updateProgress }) {
         subject: subject,
         level: parseInt(level)
       });
+
+      // Handle combo
+      if (result?.combo) {
+        setCurrentCombo(result.combo);
+        if (result.combo >= 2) {
+          setShowCombo(true);
+          setComboMultiplier(result.combo_multiplier || 1.0);
+          playSound('combo');
+          setTimeout(() => setShowCombo(false), 2000);
+        }
+      }
 
       if (result?.level_up) {
         setLeveledUp(true);
@@ -78,7 +152,15 @@ function GameScreen({ userId, userProgress, updateProgress }) {
       if (result?.new_badges && result.new_badges.length > 0) {
         setNewBadges(prev => [...prev, ...result.new_badges]);
       }
+      
+      if (result?.completed_challenges && result.completed_challenges.length > 0) {
+        setCompletedChallenges(prev => [...prev, ...result.completed_challenges]);
+      }
     } else {
+      playSound('wrong');
+      setCharacterMood('encouraging');
+      setCurrentCombo(0);
+      
       await updateProgress({
         correct: false,
         points: 0,
@@ -86,6 +168,9 @@ function GameScreen({ userId, userProgress, updateProgress }) {
         level: parseInt(level)
       });
     }
+    
+    // Reset character mood after a moment
+    setTimeout(() => setCharacterMood('happy'), 2000);
   };
 
   const handleNext = async () => {
@@ -104,11 +189,24 @@ function GameScreen({ userId, userProgress, updateProgress }) {
         subject: subject,
         level: parseInt(level),
         game_completed: true,
-        perfect_game: isPerfectGame
+        perfect_game: isPerfectGame,
+        correct_count: correctCount,
+        total_questions: questions.length
       });
 
       if (result?.new_badges && result.new_badges.length > 0) {
         setNewBadges(result.new_badges);
+      }
+      
+      if (result?.mystery_box) {
+        setMysteryBox(result.mystery_box);
+        setShowMysteryBox(true);
+        playSound('mysteryBox');
+        setTimeout(() => setShowMysteryBox(false), 5000);
+      }
+      
+      if (result?.completed_challenges && result.completed_challenges.length > 0) {
+        setCompletedChallenges(prev => [...prev, ...result.completed_challenges]);
       }
       
       setGameFinished(true);
@@ -313,6 +411,13 @@ function GameScreen({ userId, userProgress, updateProgress }) {
 
   const currentQuestion = questions[currentQuestionIndex];
   const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+  
+  // Character expressions
+  const characterExpressions = {
+    happy: '😊',
+    excited: '🎉',
+    encouraging: '💪'
+  };
 
   return (
     <motion.div 
@@ -321,6 +426,132 @@ function GameScreen({ userId, userProgress, updateProgress }) {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
+      {/* Floating Character Mascot */}
+      <motion.div
+        style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          fontSize: '4rem',
+          zIndex: 1000
+        }}
+        animate={{
+          y: [0, -10, 0],
+          rotate: characterMood === 'excited' ? [0, 10, -10, 0] : 0
+        }}
+        transition={{
+          y: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+          rotate: { duration: 0.5 }
+        }}
+      >
+        {characterExpressions[characterMood]}
+      </motion.div>
+
+      {/* Combo Display */}
+      <AnimatePresence>
+        {showCombo && currentCombo >= 2 && (
+          <motion.div
+            initial={{ scale: 0, y: -50 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0, opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: '100px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              color: 'white',
+              padding: '1.5rem 2rem',
+              borderRadius: '20px',
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              zIndex: 1000,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🔥</div>
+            <div>{currentCombo}x COMBO!</div>
+            <div style={{ fontSize: '1.2rem', marginTop: '0.5rem' }}>
+              {comboMultiplier}x Points!
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mystery Box Popup */}
+      <AnimatePresence>
+        {showMysteryBox && mysteryBox && (
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            exit={{ scale: 0, opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)',
+              color: '#333',
+              padding: '2rem',
+              borderRadius: '20px',
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              zIndex: 1001,
+              boxShadow: '0 15px 40px rgba(0,0,0,0.4)',
+              textAlign: 'center',
+              minWidth: '300px'
+            }}
+          >
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+              🎁 {mysteryBox.icon}
+            </div>
+            <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>
+              Mystery Box!
+            </div>
+            <div style={{ fontSize: '1.3rem', color: '#555' }}>
+              {mysteryBox.message}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Completed Challenges Notification */}
+      <AnimatePresence>
+        {completedChallenges.map((challenge, idx) => (
+          <motion.div
+            key={`challenge-${idx}`}
+            initial={{ x: 300, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 300, opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: `${150 + idx * 100}px`,
+              right: '20px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '1rem 1.5rem',
+              borderRadius: '15px',
+              fontSize: '1rem',
+              zIndex: 999,
+              boxShadow: '0 5px 20px rgba(0,0,0,0.3)',
+              maxWidth: '300px'
+            }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{challenge.icon}</div>
+            <div style={{ fontWeight: 'bold', marginBottom: '0.3rem' }}>
+              Challenge Complete!
+            </div>
+            <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+              {challenge.title}
+            </div>
+            <div style={{ fontSize: '1.2rem', marginTop: '0.5rem', color: '#ffd700' }}>
+              +{challenge.reward} points!
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         <motion.div
           key={currentQuestionIndex}
@@ -333,9 +564,24 @@ function GameScreen({ userId, userProgress, updateProgress }) {
           <div className="question-header">
             <div className="question-number">
               Question {currentQuestionIndex + 1} of {questions.length}
+              {currentCombo > 0 && (
+                <span style={{ 
+                  marginLeft: '1rem', 
+                  color: '#f5576c', 
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold'
+                }}>
+                  🔥 {currentCombo}x Combo
+                </span>
+              )}
             </div>
             <div className="question-points">
               {currentQuestion.points || 10} Points
+              {comboMultiplier > 1 && (
+                <span style={{ color: '#f5576c', marginLeft: '0.5rem' }}>
+                  ({comboMultiplier}x)
+                </span>
+              )}
             </div>
           </div>
 

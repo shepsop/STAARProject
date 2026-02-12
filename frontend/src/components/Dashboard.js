@@ -26,8 +26,12 @@ function Dashboard({ userProgress }) {
   const nextReward = rewards.find(r => r.points > userProgress.total_points) || rewards[rewards.length - 1];
   const progressToReward = nextReward ? ((userProgress.total_points % nextReward.points) / nextReward.points) * 100 : 100;
 
-  // Get recent badges (last 3)
+  // Get recent badges (last 6)
   const recentBadges = (userProgress.badges || []).slice(-6).reverse();
+  
+  // Get daily challenges
+  const dailyChallenges = userProgress.daily_challenges?.challenges || [];
+  const hasActiveChallenges = dailyChallenges.length > 0;
 
   return (
     <motion.div 
@@ -58,6 +62,122 @@ function Dashboard({ userProgress }) {
               <div className="streak-number">{userProgress.streak_days} Day Streak!</div>
               <div className="streak-text">Keep it going! Play every day!</div>
             </div>
+          </motion.div>
+        )}
+        
+        {/* Daily Challenges */}
+        {hasActiveChallenges && (
+          <motion.div
+            style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              padding: '1.5rem',
+              borderRadius: '15px',
+              marginTop: '1.5rem',
+              color: 'white'
+            }}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>
+              🎯 Daily Challenges
+            </h3>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              {dailyChallenges.map((challenge, idx) => (
+                <motion.div
+                  key={challenge.id}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + idx * 0.1 }}
+                >
+                  {challenge.completed && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      fontSize: '1.5rem'
+                    }}>
+                      ✅
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ fontSize: '2rem' }}>{challenge.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                        {challenge.title}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', opacity: 0.9, marginBottom: '0.5rem' }}>
+                        {challenge.description}
+                      </div>
+                      <div style={{ 
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        borderRadius: '10px',
+                        height: '8px',
+                        overflow: 'hidden',
+                        marginBottom: '0.3rem'
+                      }}>
+                        <motion.div
+                          style={{
+                            background: challenge.completed 
+                              ? 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)'
+                              : 'linear-gradient(90deg, #ffd700 0%, #ffed4e 100%)',
+                            height: '100%'
+                          }}
+                          initial={{ width: 0 }}
+                          animate={{ 
+                            width: `${Math.min((challenge.progress / challenge.goal) * 100, 100)}%` 
+                          }}
+                          transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{challenge.progress} / {challenge.goal}</span>
+                        <span style={{ color: '#ffd700', fontWeight: 'bold' }}>
+                          +{challenge.reward} pts
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Current Combo Display */}
+        {userProgress.current_combo > 0 && (
+          <motion.div
+            style={{
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              padding: '1rem',
+              borderRadius: '15px',
+              marginTop: '1rem',
+              color: 'white',
+              textAlign: 'center'
+            }}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', delay: 0.4 }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔥</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>
+              {userProgress.current_combo}x Combo Active!
+            </div>
+            <div style={{ fontSize: '0.9rem', opacity: 0.9, marginTop: '0.3rem' }}>
+              Keep answering correctly to maintain your streak!
+            </div>
+            {userProgress.max_combo > 0 && (
+              <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '0.5rem' }}>
+                Best Combo: {userProgress.max_combo}x
+              </div>
+            )}
           </motion.div>
         )}
         

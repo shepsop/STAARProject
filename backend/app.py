@@ -229,6 +229,10 @@ def default_user(user_id, username=None):
         "last_played_date": None,
         "perfect_games": 0,
         "subjects_completed": {"math": 0, "reading": 0},
+        "current_combo": 0,
+        "max_combo": 0,
+        "daily_challenges": {},
+        "mystery_boxes_opened": 0,
         "created_at": datetime.utcnow().isoformat()
     }
 
@@ -433,6 +437,130 @@ def update_streak(user):
     return 0, False
 
 
+def generate_daily_challenges():
+    """Generate daily challenges for a user"""
+    challenges = [
+        {
+            "id": "answer_5",
+            "title": "Answer 5 questions correctly",
+            "description": "Get 5 correct answers today",
+            "goal": 5,
+            "progress": 0,
+            "reward": 50,
+            "icon": "🎯",
+            "type": "correct_answers"
+        },
+        {
+            "id": "play_2_subjects",
+            "title": "Try 2 different subjects",
+            "description": "Play both Math and Reading today",
+            "goal": 2,
+            "progress": 0,
+            "reward": 40,
+            "icon": "📚",
+            "type": "subjects_played"
+        },
+        {
+            "id": "achieve_80_accuracy",
+            "title": "Achieve 80% accuracy",
+            "description": "Get 80% or more correct in a game",
+            "goal": 80,
+            "progress": 0,
+            "reward": 60,
+            "icon": "🎖️",
+            "type": "accuracy"
+        }
+    ]
+    return challenges
+
+
+def get_daily_challenges(user):
+    """Get or create daily challenges for the user"""
+    today = datetime.utcnow().date().isoformat()
+    
+    if 'daily_challenges' not in user:
+        user['daily_challenges'] = {}
+    
+    # Check if challenges need to be refreshed
+    if user['daily_challenges'].get('date') != today:
+        user['daily_challenges'] = {
+            'date': today,
+            'challenges': generate_daily_challenges(),
+            'subjects_today': []
+        }
+    
+    return user['daily_challenges']
+
+
+def update_daily_challenges(user, correct_count, total_questions, subjects_played):
+    """Update daily challenge progress and award rewards"""
+    challenges_data = get_daily_challenges(user)
+    challenges = challenges_data['challenges']
+    rewards_earned = 0
+    completed_challenges = []
+    
+    for challenge in challenges:
+        if challenge.get('completed'):
+            continue
+            
+        if challenge['type'] == 'correct_answers':
+            challenge['progress'] = min(challenge['progress'] + (1 if correct_count > 0 else 0), challenge['goal'])
+        elif challenge['type'] == 'subjects_played':
+            if subjects_played:
+                for subject in subjects_played:
+                    if subject not in challenges_data.get('subjects_today', []):
+                        challenges_data.setdefault('subjects_today', []).append(subject)
+                challenge['progress'] = len(challenges_data.get('subjects_today', []))
+        elif challenge['type'] == 'accuracy' and total_questions > 0:
+            accuracy = (correct_count / total_questions) * 100
+            if accuracy >= challenge['goal']:
+                challenge['progress'] = challenge['goal']
+        
+        # Check if challenge is completed
+        if challenge['progress'] >= challenge['goal'] and not challenge.get('completed'):
+            challenge['completed'] = True
+            challenge['completed_at'] = datetime.utcnow().isoformat()
+            rewards_earned += challenge['reward']
+            completed_challenges.append(challenge)
+    
+    return rewards_earned, completed_challenges
+
+
+def calculate_combo_multiplier(combo_count):
+    """Calculate point multiplier based on combo"""
+    if combo_count >= 5:
+        return 3.0
+    elif combo_count >= 3:
+        return 2.0
+    elif combo_count >= 2:
+        return 1.5
+    return 1.0
+
+
+def generate_mystery_box():
+    """Generate a random mystery box reward"""
+    boxes = [
+        {"type": "points", "amount": 25, "message": "Found 25 bonus points!", "icon": "⭐"},
+        {"type": "points", "amount": 50, "message": "Wow! 50 bonus points!", "icon": "💎"},
+        {"type": "points", "amount": 100, "message": "JACKPOT! 100 bonus points!", "icon": "🎰", "rarity": 0.1},
+        {"type": "badge", "name": "Lucky Star", "description": "Found in a mystery box!", "icon": "🍀"},
+        {"type": "message", "message": "You're doing amazing! Keep it up!", "icon": "🌟"},
+        {"type": "message", "message": "You're a superstar! Keep learning!", "icon": "✨"},
+    ]
+    
+    # Weight rare items
+    weighted_boxes = []
+    for box in boxes:
+        rarity = box.get('rarity', 0.3)
+        if random.random() < rarity:
+            weighted_boxes.append(box)
+    
+    if not weighted_boxes:
+        weighted_boxes = [b for b in boxes if b.get('type') != 'badge']
+    
+    return random.choice(weighted_boxes) if weighted_boxes else boxes[0]
+
+
 def load_questions():
     """Load questions from JSON file"""
     global questions_data
@@ -542,6 +670,11 @@ def get_user_progress(authenticated_user_id, user_id):
     if not user:
         user = default_user(user_id)
         save_user_record(user)
+    
+    # Ensure daily challenges are current
+    get_daily_challenges(user)
+    save_user_record(user)
+    
     return jsonify(user)
 
 
@@ -559,6 +692,14 @@ def update_user_progress(authenticated_user_id, user_id):
     if not user:
         user = default_user(user_id)
     
+    # Initialize new fields if not present
+    if 'current_combo' not in user:
+        user['current_combo'] = 0
+    if 'max_combo' not in user:
+        user['max_combo'] = 0
+    if 'daily_challenges' not in user:
+        user['daily_challenges'] = {}
+    
     # Update streak
     streak_bonus, streak_updated = update_streak(user)
     
@@ -573,10 +714,27 @@ def update_user_progress(authenticated_user_id, user_id):
     user['questions_answered'] += 1
     level_up = False
     new_badges = []
+    combo_bonus = 0
+    combo_multiplier = 1.0
+    mystery_box = None
+    challenge_rewards = 0
+    completed_challenges = []
     
     if data.get('correct'):
         user['correct_answers'] += 1
-        points_earned = data.get('points', 10)
+        
+        # Update combo
+        user['current_combo'] += 1
+        user['max_combo'] = max(user.get('max_combo', 0), user['current_combo'])
+        
+        # Calculate combo multiplier
+        combo_multiplier = calculate_combo_multiplier(user['current_combo'])
+        
+        # Calculate points with combo multiplier
+        base_points = data.get('points', 10)
+        combo_bonus = int(base_points * (combo_multiplier - 1))
+        points_earned = base_points + combo_bonus
+        
         user['total_points'] += points_earned + streak_bonus
         
         # Check for level up
@@ -584,14 +742,68 @@ def update_user_progress(authenticated_user_id, user_id):
         if user['total_points'] >= points_needed_for_next_level:
             user['current_level'] += 1
             level_up = True
+    else:
+        # Wrong answer - reset combo
+        user['current_combo'] = 0
+    
+    # Update daily challenges (if game completed)
+    if data.get('game_completed'):
+        correct_in_game = data.get('correct_count', 0)
+        total_in_game = data.get('total_questions', 5)
+        subjects_played = [subject] if subject else []
+        
+        challenge_rewards, completed_challenges = update_daily_challenges(
+            user, correct_in_game, total_in_game, subjects_played
+        )
+        
+        if challenge_rewards > 0:
+            user['total_points'] += challenge_rewards
+        
+        # Mystery box chance on game completion (70% chance)
+        if random.random() < 0.7:
+            mystery_box = generate_mystery_box()
+            
+            if mystery_box['type'] == 'points':
+                user['total_points'] += mystery_box['amount']
+            elif mystery_box['type'] == 'badge':
+                badge = {
+                    "id": f"mystery_{user.get('mystery_boxes_opened', 0)}",
+                    "name": mystery_box['name'],
+                    "description": mystery_box['description'],
+                    "icon": mystery_box['icon'],
+                    "earned_at": datetime.utcnow().isoformat()
+                }
+                user['badges'].append(badge)
+                new_badges.append(badge)
+            
+            user['mystery_boxes_opened'] = user.get('mystery_boxes_opened', 0) + 1
     
     # Check for new badges
     game_data = {'perfect_game': data.get('perfect_game', False)}
-    new_badges = check_for_badges(user, game_data)
+    achievement_badges = check_for_badges(user, game_data)
+    
+    # Add combo badges
+    if user['current_combo'] == 5:
+        achievement_badges.append({
+            "id": f"combo_5_{datetime.utcnow().timestamp()}",
+            "name": "Combo Master!",
+            "description": "5 correct answers in a row!",
+            "icon": "🔥",
+            "earned_at": datetime.utcnow().isoformat()
+        })
+    elif user['current_combo'] == 10:
+        achievement_badges.append({
+            "id": f"combo_10_{datetime.utcnow().timestamp()}",
+            "name": "Unstoppable!",
+            "description": "10 correct answers in a row!",
+            "icon": "⚡",
+            "earned_at": datetime.utcnow().isoformat()
+        })
     
     # Add new badges to user's collection
-    if new_badges:
-        user['badges'].extend(new_badges)
+    if achievement_badges:
+        user['badges'].extend(achievement_badges)
+        new_badges.extend(achievement_badges)
     
     user['last_played'] = datetime.utcnow().isoformat()
     user['last_played_date'] = datetime.utcnow().date().isoformat()
@@ -602,7 +814,13 @@ def update_user_progress(authenticated_user_id, user_id):
         "level_up": level_up,
         "new_badges": new_badges,
         "streak_bonus": streak_bonus,
-        "streak_updated": streak_updated
+        "streak_updated": streak_updated,
+        "combo": user['current_combo'],
+        "combo_multiplier": combo_multiplier,
+        "combo_bonus": combo_bonus,
+        "mystery_box": mystery_box,
+        "challenge_rewards": challenge_rewards,
+        "completed_challenges": completed_challenges
     })
 
 

@@ -47,7 +47,6 @@ az acr update -n staarquestreg --admin-enabled true
 az acr login --name staarquestreg
 
 # Tag your image
-docker tag staar-quest staarquestreg.azurecr.io/staar-quest:latest
 
 # Push to ACR
 docker push staarquestreg.azurecr.io/staar-quest:latest
