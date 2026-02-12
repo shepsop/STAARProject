@@ -25,6 +25,7 @@ JWT_EXPIRATION_HOURS = 24 * 7  # 1 week
 
 # In-memory storage (fallback if Cosmos DB not configured)
 users_data = {}
+auth_users_data = {}  # Store authentication records
 questions_data = None
 
 # Cosmos DB (optional)
@@ -153,7 +154,8 @@ def get_auth_user(username):
             return cosmos_users_container.read_item(item=username, partition_key=username)
         except cosmos_exceptions.CosmosResourceNotFoundError:
             return None
-    return None
+    # Fallback to in-memory storage
+    return auth_users_data.get(username)
 
 
 def save_auth_user(username, password_hash, user_id):
@@ -167,6 +169,9 @@ def save_auth_user(username, password_hash, user_id):
     }
     if cosmos_enabled and cosmos_users_container:
         cosmos_users_container.upsert_item(auth_record)
+    else:
+        # Fallback to in-memory storage
+        auth_users_data[username] = auth_record
     return auth_record
 
 

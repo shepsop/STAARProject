@@ -16,7 +16,7 @@
 docker build -t staar-quest .
 
 # Test locally
-docker run -p 8000:8000 staar-quest
+docker run -p 8000:8000 staar-questd
 
 # Visit http://localhost:8000 to verify it works
 ```
