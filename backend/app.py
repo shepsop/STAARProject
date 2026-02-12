@@ -15,7 +15,15 @@ from functools import wraps
 from azure.cosmos import CosmosClient, PartitionKey, exceptions as cosmos_exceptions
 from azure.identity import DefaultAzureCredential
 
-app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
+# Determine static folder path (works in both development and production)
+if os.path.exists('../frontend/build'):
+    static_folder = '../frontend/build'
+elif os.path.exists('/app/frontend/build'):
+    static_folder = '/app/frontend/build'
+else:
+    static_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build')
+
+app = Flask(__name__, static_folder=static_folder, static_url_path='')
 CORS(app)
 
 # JWT Configuration
@@ -808,8 +816,23 @@ def check_admin_status(user_id):
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
+    # Serve static files if they exist
+    if path and '.' in path:
+        file_path = os.path.join(app.static_folder, path)
+        if os.path.exists(file_path):
+            return send_from_directory(app.static_folder, path)
+    
+    # For all other paths (including /admin), serve index.html for client-side routing
+    return send_from_directory(app.static_folder, 'index.html')
+
+
+# Handle 404 errors by serving React app (fallback for client-side routing)
+@app.errorhandler(404)
+def not_found(e):
+    # If it's an API request, return JSON error
+    if request.path.startswith('/api/'):
+        return jsonify(error='Not found'), 404
+    # Otherwise, serve the React app
     return send_from_directory(app.static_folder, 'index.html')
 
 
