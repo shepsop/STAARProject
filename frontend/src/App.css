@@ -1160,6 +1160,58 @@ body::before {
   body {
     font-size: 14px;
   }
+
+  .game-screen {
+    padding: 1.25rem;
+    max-width: 820px;
+  }
+
+  .question-card {
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .question-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .question-number {
+    font-size: 0.75rem;
+  }
+
+  .question-points {
+    font-size: 0.6rem;
+    padding: 0.4rem 1rem;
+  }
+
+  .passage {
+    font-size: 0.55rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .question-text {
+    font-size: 0.7rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .options-grid {
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .option-button {
+    padding: 1.1rem;
+    font-size: 0.65rem;
+    line-height: 1.5;
+  }
+
+  .submit-button,
+  .next-button {
+    padding: 1rem 2rem;
+    font-size: 0.7rem;
+  }
 }
 
 /* Touch-friendly adjustments for iPad */
