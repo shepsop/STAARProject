@@ -169,6 +169,35 @@ body::before {
     2px 2px 0 #ffff00;
 }
 
+.admin-button {
+  background: #ffd43b;
+  color: #000;
+  border: 4px solid #fff;
+  padding: 0.5rem 1.2rem;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 
+    inset 0 0 0 2px #ff6b00,
+    4px 4px 0 #ff0000;
+  font-weight: bold;
+}
+
+.admin-button:hover {
+  background: #ffd43b;
+  box-shadow: 
+    inset 0 0 0 2px #ff6b00,
+    6px 6px 0 #ff0000;
+  transform: scale(1.05);
+}
+
+.admin-button:active {
+  box-shadow: 
+    inset 0 0 0 2px #ff6b00,
+    2px 2px 0 #ff0000;
+}
+
 /* Loading Screen */
 .loading-screen {
   display: flex;

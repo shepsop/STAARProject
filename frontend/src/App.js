@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import LevelSelect from './components/LevelSelect';
 import Login from './components/Login';
 import Register from './components/Register';
+import AdminDashboard from './components/AdminDashboard';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
@@ -16,6 +17,7 @@ function App() {
   const [token, setToken] = useState(null);
   const [userProgress, setUserProgress] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Check for token on app load
   useEffect(() => {
@@ -49,10 +51,30 @@ function App() {
 
       const data = await response.json();
       setUserProgress(data);
+      
+      // Check admin status
+      checkAdminStatus(authToken);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching user progress:', error);
       setLoading(false);
+    }
+  };
+
+  const checkAdminStatus = async (authToken) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/check`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsAdmin(data.is_admin);
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
     }
   };
 
@@ -89,6 +111,7 @@ function App() {
     setUserId(null);
     setUsername(null);
     setUserProgress(null);
+    setIsAdmin(false);
     setLoading(false);
   };
 
@@ -149,6 +172,17 @@ function App() {
                 <span className="stat-icon">👤</span>
                 <span className="stat-value">{username}</span>
               </div>
+              {isAdmin && (
+                <motion.button
+                  className="admin-button"
+                  onClick={() => window.location.href = '/admin'}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Admin Dashboard"
+                >
+                  🔐 Admin
+                </motion.button>
+              )}
               <motion.button
                 className="logout-button"
                 onClick={handleLogout}
@@ -174,6 +208,7 @@ function App() {
               />
             } 
           />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

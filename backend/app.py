@@ -26,18 +26,20 @@ JWT_EXPIRATION_HOURS = 24 * 7  # 1 week
 # In-memory storage (fallback if Cosmos DB not configured)
 users_data = {}
 auth_users_data = {}  # Store authentication records
+audit_logs = []  # Store admin actions
 questions_data = None
 
 # Cosmos DB (optional)
 cosmos_client = None
 cosmos_container = None
 cosmos_users_container = None
+cosmos_audit_container = None
 cosmos_enabled = False
 
 
 def init_cosmos():
     """Initialize Cosmos DB if configured via environment variables."""
-    global cosmos_client, cosmos_container, cosmos_users_container, cosmos_enabled
+    global cosmos_client, cosmos_container, cosmos_users_container, cosmos_audit_container, cosmos_enabled
 
     endpoint = os.getenv("COSMOS_ENDPOINT")
     if not endpoint:
@@ -63,6 +65,10 @@ def init_cosmos():
             id="auth_users",
             partition_key=PartitionKey(path="/username")
         )
+        cosmos_audit_container = database.create_container_if_not_exists(
+            id="audit_logs",
+            partition_key=PartitionKey(path="/admin_user_id")
+        )
         cosmos_enabled = True
         print("✓ Cosmos DB enabled for user persistence")
     except Exception as exc:
@@ -70,6 +76,7 @@ def init_cosmos():
         cosmos_client = None
         cosmos_container = None
         cosmos_users_container = None
+        cosmos_audit_container = None
         print(f"⚠ Cosmos DB not available, using in-memory storage: {exc}")
 
 
@@ -126,6 +133,77 @@ def token_required(f):
     return decorated
 
 
+def admin_required(f):
+    """Decorator to require admin privileges"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                token = auth_header.split(" ")[1]
+            except IndexError:
+                return jsonify({'error': 'Invalid token format'}), 401
+
+        if not token:
+            return jsonify({'error': 'Token is missing'}), 401
+
+        user_id = verify_token(token)
+        if not user_id:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Check if user is admin
+        user_auth = get_auth_user_by_id(user_id)
+        if not user_auth or not user_auth.get('is_admin', False):
+            return jsonify({'error': 'Admin privileges required'}), 403
+
+        return f(user_id, *args, **kwargs)
+    return decorated
+
+
+def get_auth_user_by_id(user_id):
+    """Get authentication record by user_id"""
+    if cosmos_enabled and cosmos_users_container:
+        try:
+            items = list(cosmos_users_container.query_items(
+                query="SELECT * FROM c WHERE c.user_id = @user_id",
+                parameters=[{"name": "@user_id", "value": user_id}],
+                enable_cross_partition_query=True
+            ))
+            return items[0] if items else None
+        except Exception:
+            return None
+    # Fallback to in-memory storage
+    for auth_user in auth_users_data.values():
+        if auth_user.get('user_id') == user_id:
+            return auth_user
+    return None
+
+
+def log_admin_action(admin_user_id, action, target_user, details):
+    """Log an admin action for audit purposes"""
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "admin_user_id": admin_user_id,
+        "action": action,
+        "target_user": target_user,
+        "details": details,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    if cosmos_enabled and cosmos_audit_container:
+        cosmos_audit_container.upsert_item(log_entry)
+    else:
+        audit_logs.append(log_entry)
+    return log_entry
+
+
+def generate_temp_password():
+    """Generate a temporary password"""
+    import string
+    chars = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(random.choice(chars) for _ in range(12))
+
+
 def default_user(user_id, username=None):
     """Create default user record"""
     return {
@@ -158,13 +236,14 @@ def get_auth_user(username):
     return auth_users_data.get(username)
 
 
-def save_auth_user(username, password_hash, user_id):
+def save_auth_user(username, password_hash, user_id, is_admin=False):
     """Save authentication record"""
     auth_record = {
         "id": username,
         "username": username,
         "password_hash": password_hash,
         "user_id": user_id,
+        "is_admin": is_admin,
         "created_at": datetime.utcnow().isoformat()
     }
     if cosmos_enabled and cosmos_users_container:
@@ -548,6 +627,181 @@ def get_questions(subject):
 def get_leaderboard():
     """Get top users by points"""
     return jsonify(get_top_users(10))
+
+
+# ============ ADMIN ROUTES ============
+
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def admin_list_users(admin_user_id):
+    """List all users (admin only)"""
+    limit = int(request.args.get('limit', 100))
+    
+    if cosmos_enabled and cosmos_container:
+        try:
+            query = "SELECT TOP @limit c.user_id, c.username, c.current_level, c.total_points, c.created_at FROM c ORDER BY c.created_at DESC"
+            items = list(cosmos_container.query_items(
+                query=query,
+                parameters=[{"name": "@limit", "value": limit}],
+                enable_cross_partition_query=True
+            ))
+            return jsonify(items)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    # Fallback to in-memory storage
+    users_list = sorted(
+        [{'user_id': u['user_id'], 'username': u['username'], 'current_level': u['current_level'], 
+          'total_points': u['total_points'], 'created_at': u['created_at']} 
+         for u in users_data.values()],
+        key=lambda x: x['created_at'],
+        reverse=True
+    )
+    return jsonify(users_list[:limit])
+
+
+@app.route('/api/admin/user/<username>', methods=['GET'])
+@admin_required
+def admin_get_user(admin_user_id, username):
+    """Get specific user details (admin only)"""
+    auth_user = get_auth_user(username)
+    if not auth_user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    user_id = auth_user.get('user_id')
+    user_progress = get_user_record(user_id)
+    
+    return jsonify({
+        'username': username,
+        'user_id': user_id,
+        'created_at': auth_user.get('created_at'),
+        'is_admin': auth_user.get('is_admin', False),
+        'progress': user_progress or default_user(user_id, username)
+    })
+
+
+@app.route('/api/admin/reset-password', methods=['POST'])
+@admin_required
+def admin_reset_password(admin_user_id):
+    """Reset a user's password (admin only)"""
+    data = request.json
+    target_username = data.get('username', '').strip().lower()
+    new_password = data.get('new_password', '')
+    
+    if not target_username or not new_password:
+        return jsonify({'error': 'Username and new password are required'}), 400
+    
+    if len(new_password) < 4:
+        return jsonify({'error': 'Password must be at least 4 characters'}), 400
+    
+    # Check if admin is resetting their own password (should use different endpoint)
+    admin_user = get_auth_user_by_id(admin_user_id)
+    if admin_user and admin_user.get('username') == target_username:
+        return jsonify({'error': 'Use the change password endpoint for your own password'}), 400
+    
+    # Get target user
+    auth_user = get_auth_user(target_username)
+    if not auth_user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Update password
+    new_password_hash = hash_password(new_password)
+    auth_user['password_hash'] = new_password_hash
+    auth_user['last_password_reset'] = datetime.utcnow().isoformat()
+    auth_user['reset_by_admin'] = admin_user_id
+    
+    # Save updated auth record
+    if cosmos_enabled and cosmos_users_container:
+        cosmos_users_container.upsert_item(auth_user)
+    else:
+        auth_users_data[target_username] = auth_user
+    
+    # Log the action
+    log_admin_action(admin_user_id, 'password_reset', target_username, 
+                     {'username': target_username, 'admin': admin_user.get('username') if admin_user else 'unknown'})
+    
+    return jsonify({
+        'message': f'Password reset successfully for user {target_username}',
+        'username': target_username
+    }), 200
+
+
+@app.route('/api/admin/make-admin', methods=['POST'])
+@admin_required
+def admin_grant_privileges(admin_user_id):
+    """Grant admin privileges to a user (admin only)"""
+    # Check if requester is actually a super admin (optional - for now all admins can grant)
+    data = request.json
+    target_username = data.get('username', '').strip().lower()
+    
+    if not target_username:
+        return jsonify({'error': 'Username is required'}), 400
+    
+    auth_user = get_auth_user(target_username)
+    if not auth_user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    if auth_user.get('is_admin', False):
+        return jsonify({'message': 'User is already an admin'}), 200
+    
+    # Grant admin privileges
+    auth_user['is_admin'] = True
+    auth_user['made_admin_at'] = datetime.utcnow().isoformat()
+    auth_user['made_admin_by'] = admin_user_id
+    
+    if cosmos_enabled and cosmos_users_container:
+        cosmos_users_container.upsert_item(auth_user)
+    else:
+        auth_users_data[target_username] = auth_user
+    
+    # Log the action
+    admin_user = get_auth_user_by_id(admin_user_id)
+    log_admin_action(admin_user_id, 'grant_admin', target_username,
+                     {'username': target_username, 'granted_by': admin_user.get('username') if admin_user else 'unknown'})
+    
+    return jsonify({
+        'message': f'Admin privileges granted to {target_username}',
+        'username': target_username,
+        'is_admin': True
+    }), 200
+
+
+@app.route('/api/admin/audit-logs', methods=['GET'])
+@admin_required
+def admin_get_audit_logs(admin_user_id):
+    """Get audit logs of admin actions (admin only)"""
+    limit = int(request.args.get('limit', 50))
+    
+    if cosmos_enabled and cosmos_audit_container:
+        try:
+            query = "SELECT TOP @limit * FROM c ORDER BY c.timestamp DESC"
+            items = list(cosmos_audit_container.query_items(
+                query=query,
+                parameters=[{"name": "@limit", "value": limit}],
+                enable_cross_partition_query=True
+            ))
+            return jsonify(items)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    # Fallback to in-memory storage
+    sorted_logs = sorted(audit_logs, key=lambda x: x['timestamp'], reverse=True)
+    return jsonify(sorted_logs[:limit])
+
+
+@app.route('/api/admin/check', methods=['GET'])
+@token_required
+def check_admin_status(user_id):
+    """Check if current user is an admin"""
+    auth_user = get_auth_user_by_id(user_id)
+    is_admin = auth_user.get('is_admin', False) if auth_user else False
+    username = auth_user.get('username') if auth_user else None
+    
+    return jsonify({
+        'is_admin': is_admin,
+        'user_id': user_id,
+        'username': username
+    })
 
 
 # Catch-all route to serve React app for client-side routing
