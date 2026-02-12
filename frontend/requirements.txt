@@ -1,0 +1,3 @@
+# Frontend runtime requirements (reference only)
+nodejs>=18.0.0
+npm>=9.2.0

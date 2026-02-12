@@ -3,6 +3,8 @@
 ## 🚀 Get Started in 3 Steps!
 
 ### Step 1: Install Frontend Dependencies
+Make sure you have the required Node.js/npm versions (see `frontend/requirements.txt`).
+
 Open a terminal and run:
 ```bash
 cd /Users/robert/projects/STAARProject/frontend
@@ -16,7 +18,7 @@ In a new terminal:
 cd /Users/robert/projects/STAARProject
 python3 -m venv venv             # Create Python virtual environment
 source venv/bin/activate    
-cd backend     # Activate Python virtual environment
+cd backend     # Activate Pytshon virtual environment
 pip install -r requirements.txt  # Install Flask and dependencies
 python app.py
 ```

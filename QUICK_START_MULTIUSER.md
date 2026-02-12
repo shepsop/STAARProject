@@ -36,6 +36,7 @@ python app.py
 The backend will start on `http://localhost:8000`
 
 ## 2. Setup Frontend
+Make sure you have the required Node.js/npm versions (see `frontend/requirements.txt`).
 
 ```bash
 cd frontend
