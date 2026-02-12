@@ -5,7 +5,7 @@ import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-function Register() {
+function Register({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -50,10 +50,19 @@ function Register() {
         return;
       }
 
-      // Store token and user info
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user_id', data.user_id);
-      localStorage.setItem('username', data.username);
+      // Call parent component's login success handler
+      if (onLoginSuccess) {
+        onLoginSuccess({
+          token: data.token,
+          user_id: data.user_id,
+          username: data.username,
+        });
+      } else {
+        // Fallback: Store token and user info directly
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user_id', data.user_id);
+        localStorage.setItem('username', data.username);
+      }
 
       // Navigate to home
       navigate('/');

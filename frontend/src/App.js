@@ -35,6 +35,17 @@ function App() {
     }
   }, []);
 
+  // Function to handle successful login
+  const handleLoginSuccess = (authData) => {
+    setToken(authData.token);
+    setUserId(authData.user_id);
+    setUsername(authData.username);
+    localStorage.setItem('token', authData.token);
+    localStorage.setItem('user_id', authData.user_id);
+    localStorage.setItem('username', authData.username);
+    fetchUserProgress(authData.user_id, authData.token);
+  };
+
   const fetchUserProgress = async (uid, authToken) => {
     try {
       const response = await fetch(`${API_URL}/api/user/${uid}`, {
@@ -136,8 +147,8 @@ function App() {
     return (
       <Router>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/register" element={<Register onLoginSuccess={handleLoginSuccess} />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
