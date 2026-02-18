@@ -188,7 +188,7 @@ az webapp identity assign --resource-group staar-quest-rg --name staar-quest-app
 
 - **Deployment Date**: February 12, 2026
 - **Backend Version**: With Cosmos DB integration
-- **Container Registry**: `staarquestreg.azurecr.io/staar-quest:latest`
+- **Container Registry**: `allpurposeacr.azurecr.io/staar-quest:latest` (AllPurpose RG)
 - **App Service**: `staar-quest-app` (West US 3)
 - **Status**: ✅ Active and Running
 

@@ -52,7 +52,7 @@
 - Built Docker image locally
 - Tested container locally on port 8000
 - Created Azure resources (resource group in West US 3)
-- Pushed image to ACR: `staarquestreg.azurecr.io/staar-quest:latest`
+- Pushed image to ACR: `allpurposeacr.azurecr.io/staar-quest:latest` (AllPurpose RG)
 - Created App Service: `staar-quest-app` in existing App Service Plan `ASP4all`
 - Configured WEBSITES_PORT=8000 and PYTHONUNBUFFERED=1
 
@@ -79,7 +79,7 @@
 | Component | Status | Details |
 |-----------|--------|---------|
 | **App Service** | ✅ Running | staar-quest-app (West US 3) |
-| **Container Image** | ✅ Latest | staarquestreg.azurecr.io/staar-quest:latest |
+| **Container Image** | ✅ Latest | allpurposeacr.azurecr.io/staar-quest:latest (AllPurpose RG) |
 | **Cosmos DB** | ✅ Active | staar-quest-cosmos with 2 containers |
 | **User Authentication** | ✅ Working | Registration and login tested |
 | **Data Persistence** | ✅ Live | User data stored in Cosmos DB |

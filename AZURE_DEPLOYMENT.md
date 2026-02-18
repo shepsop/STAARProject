@@ -33,23 +33,26 @@ az account set --subscription "<your-subscription-id>"
 # Create a resource group (if you don't have one)
 az group create --name staar-quest-rg --location eastus
 
-# Create Azure Container Registry (if needed)
-az acr create --resource-group staar-quest-rg --name staarquestreg --sku Basic
+# Use existing Azure Container Registry
+# Registry: AllPurposeACR
+# Resource Group: AllPurpose
+# (No need to create - already exists)
 
-# Enable admin access
-az acr update -n staarquestreg --admin-enabled true
+# Verify admin access is enabled
+az acr update -n AllPurposeACR --admin-enabled true
 ```
 
 ### Step 3: Push Image to Azure Container Registry
 
 ```bash
 # Login to ACR
-az acr login --name staarquestreg
+az acr login --name AllPurposeACR
 
 # Tag your image
+docker tag staar-quest:latest allpurposeacr.azurecr.io/staar-quest:latest
 
 # Push to ACR
-docker push staarquestreg.azurecr.io/staar-quest:latest
+docker push allpurposeacr.azurecr.io/staar-quest:latest
 ```
 
 ### Step 4: Deploy to Existing App Service
@@ -62,25 +65,25 @@ az webapp create \
   --resource-group <your-resource-group> \
   --plan <your-app-service-plan> \
   --name staar-quest-app \
-  --deployment-container-image-name staarquestreg.azurecr.io/staar-quest:latest
+  --deployment-container-image-name allpurposeacr.azurecr.io/staar-quest:latest
 
 # Configure the Web App to use ACR
 az webapp config container set \
   --name staar-quest-app \
   --resource-group <your-resource-group> \
-  --docker-custom-image-name staarquestreg.azurecr.io/staar-quest:latest \
-  --docker-registry-server-url https://staarquestreg.azurecr.io
+  --docker-custom-image-name allpurposeacr.azurecr.io/staar-quest:latest \
+  --docker-registry-server-url https://allpurposeacr.azurecr.io
 
 # Get ACR credentials
-ACR_USERNAME=$(az acr credential show --name staarquestreg --query username -o tsv)
-ACR_PASSWORD=$(az acr credential show --name staarquestreg --query passwords[0].value -o tsv)
+ACR_USERNAME=$(az acr credential show --name AllPurposeACR --resource-group AllPurpose --query username -o tsv)
+ACR_PASSWORD=$(az acr credential show --name AllPurposeACR --resource-group AllPurpose --query passwords[0].value -o tsv)
 
 # Set ACR credentials in Web App
 az webapp config appsettings set \
   --resource-group <your-resource-group> \
   --name staar-quest-app \
   --settings \
-    DOCKER_REGISTRY_SERVER_URL=https://staarquestreg.azurecr.io \
+    DOCKER_REGISTRY_SERVER_URL=https://allpurposeacr.azurecr.io \
     DOCKER_REGISTRY_SERVER_USERNAME=$ACR_USERNAME \
     DOCKER_REGISTRY_SERVER_PASSWORD=$ACR_PASSWORD \
     WEBSITES_PORT=8000
@@ -220,7 +223,7 @@ az monitor app-insights component create \
 | Component | Status | Details |
 |-----------|--------|----------|
 | App Service | ✅ Running | `staar-quest-app` in West US 3 |
-| Container Registry | ✅ Active | Image: `staarquestreg.azurecr.io/staar-quest:latest` |
+| Container Registry | ✅ Active | Image: `allpurposeacr.azurecr.io/staar-quest:latest` (AllPurpose RG) |
 | Cosmos DB | ✅ Active | `staar-quest-cosmos` with `users` and `auth_users` containers |
 | User Data Persistence | ✅ Live | All user progress stored in Cosmos DB |
 | Frontend | ✅ Accessible | https://staar-quest-app.azurewebsites.net |
